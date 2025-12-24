@@ -51,7 +51,9 @@ Content-Type: application/json
     "interval_seconds": 300,
     "timeout_seconds": 30,
     "enabled": true,
-    "discord_webhook_url": "https://discord.com/api/webhooks/..."
+    "discord_webhook_url": "https://discord.com/api/webhooks/...",
+    "telegram_bot_token": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
+    "telegram_chat_id": "123456789"
 }
 ```
 
@@ -61,6 +63,11 @@ Content-Type: application/json
 - `timeout_seconds` (integer, optional): Request timeout in seconds (1-300, default: 30)
 - `enabled` (boolean, optional): Whether monitoring is enabled (default: true)
 - `discord_webhook_url` (string, optional): Discord webhook URL for notifications
+- `telegram_bot_token` (string, optional): Telegram bot token from @BotFather
+- `telegram_chat_id` (string, optional): Telegram chat ID or username
+  - **For text & voice messages:** Use numeric ID (e.g., `123456789`). Get it by messaging @userinfobot
+  - **For voice calls:** Use username format (e.g., `@yourusername`). Requires CallMeBot authorization (@CallMeBot_txtbot)
+  - **Important:** Start a conversation with your bot first by sending it a message!
 
 **Response** (201 Created):
 ```json
@@ -73,6 +80,8 @@ Content-Type: application/json
         "timeout_seconds": 30,
         "enabled": true,
         "discord_webhook_url": "https://discord.com/api/webhooks/...",
+        "telegram_bot_token": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
+        "telegram_chat_id": "123456789",
         "created_at": "2025-12-24 10:00:00",
         "updated_at": "2025-12-24 10:00:00"
     }
@@ -121,6 +130,8 @@ X-API-Key: your-api-key
             "timeout_seconds": 30,
             "enabled": true,
             "discord_webhook_url": null,
+            "telegram_bot_token": null,
+            "telegram_chat_id": null,
             "created_at": "2025-12-24 10:00:00",
             "updated_at": "2025-12-24 10:00:00"
         },
@@ -132,6 +143,8 @@ X-API-Key: your-api-key
             "timeout_seconds": 30,
             "enabled": false,
             "discord_webhook_url": null,
+            "telegram_bot_token": null,
+            "telegram_chat_id": null,
             "created_at": "2025-12-24 11:00:00",
             "updated_at": "2025-12-24 11:00:00"
         }
@@ -171,6 +184,8 @@ X-API-Key: your-api-key
         "timeout_seconds": 30,
         "enabled": true,
         "discord_webhook_url": null,
+        "telegram_bot_token": null,
+        "telegram_chat_id": null,
         "created_at": "2025-12-24 10:00:00",
         "updated_at": "2025-12-24 10:00:00",
         "recent_statuses": [
@@ -230,7 +245,9 @@ Content-Type: application/json
     "interval_seconds": 600,
     "timeout_seconds": 45,
     "enabled": false,
-    "discord_webhook_url": null
+    "discord_webhook_url": null,
+    "telegram_bot_token": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
+    "telegram_chat_id": "123456789"
 }
 ```
 
@@ -240,6 +257,11 @@ Content-Type: application/json
 - `timeout_seconds` (integer, optional): New timeout (1-300)
 - `enabled` (boolean, optional): Enable/disable monitoring
 - `discord_webhook_url` (string, optional): New webhook URL (set to null to remove)
+- `telegram_bot_token` (string, optional): Telegram bot token from @BotFather (set to null to remove)
+- `telegram_chat_id` (string, optional): Telegram chat ID or username (set to null to remove)
+  - **For text & voice messages:** Use numeric ID (e.g., `123456789`). Get it by messaging @userinfobot
+  - **For voice calls:** Use username format (e.g., `@yourusername`). Requires CallMeBot authorization (@CallMeBot_txtbot)
+  - **Important:** Start a conversation with your bot first by sending it a message!
 
 **Response** (200 OK):
 ```json
@@ -252,6 +274,8 @@ Content-Type: application/json
         "timeout_seconds": 45,
         "enabled": false,
         "discord_webhook_url": null,
+        "telegram_bot_token": null,
+        "telegram_chat_id": null,
         "created_at": "2025-12-24 10:00:00",
         "updated_at": "2025-12-24 10:30:00"
     }

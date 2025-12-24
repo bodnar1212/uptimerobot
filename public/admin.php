@@ -878,6 +878,7 @@ $stats = $statsStmt->fetch();
                             <th>Timeout</th>
                             <th>Status</th>
                             <th>Discord</th>
+                            <th>Telegram</th>
                             <th>Created At</th>
                             <th>Actions</th>
                         </tr>
@@ -904,6 +905,13 @@ $stats = $statsStmt->fetch();
                             <td>
                                 <?php if (!empty($monitor['discord_webhook_url'])): ?>
                                     <span class="badge badge-success" title="<?= htmlspecialchars($monitor['discord_webhook_url']) ?>">✅ Configured</span>
+                                <?php else: ?>
+                                    <span class="badge badge-secondary">Not configured</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if (!empty($monitor['telegram_bot_token']) && !empty($monitor['telegram_chat_id'])): ?>
+                                    <span class="badge badge-success" title="Bot Token: <?= htmlspecialchars(substr($monitor['telegram_bot_token'], 0, 20)) ?>... | Chat ID: <?= htmlspecialchars($monitor['telegram_chat_id']) ?>">✅ Configured</span>
                                 <?php else: ?>
                                     <span class="badge badge-secondary">Not configured</span>
                                 <?php endif; ?>
@@ -1258,8 +1266,10 @@ $stats = $statsStmt->fetch();
                 </div>
                 <div class="form-group">
                     <label for="create_telegram_chat">Telegram Chat ID</label>
-                    <input type="text" name="telegram_chat_id" id="create_telegram_chat" placeholder="123456789">
-                    <small>Optional. Your Telegram user ID or chat ID. Send a message to @userinfobot to get your ID</small>
+                    <input type="text" name="telegram_chat_id" id="create_telegram_chat" placeholder="123456789 or @username">
+                    <small>
+                        Optional. Leave empty to remove. <strong>For text & voice messages:</strong> Use numeric ID (e.g., 123456789). Get it by messaging @userinfobot. <strong>For voice calls:</strong> Use username format (e.g., @yourusername). Requires CallMeBot authorization (@CallMeBot_txtbot). <strong>Important:</strong> Start a conversation with your bot first!
+                    </small>
                 </div>
                 <div class="form-group">
                     <div class="form-checkbox">
@@ -1312,8 +1322,10 @@ $stats = $statsStmt->fetch();
                 </div>
                 <div class="form-group">
                     <label for="edit_telegram_chat">Telegram Chat ID</label>
-                    <input type="text" name="telegram_chat_id" id="edit_telegram_chat" placeholder="123456789">
-                    <small>Leave empty to remove. Send a message to @userinfobot to get your ID</small>
+                    <input type="text" name="telegram_chat_id" id="edit_telegram_chat" placeholder="123456789 or @username">
+                    <small>
+                        Leave empty to remove. <strong>For text & voice messages:</strong> Use numeric ID (e.g., 123456789). Get it by messaging @userinfobot. <strong>For voice calls:</strong> Use username format (e.g., @yourusername). Requires CallMeBot authorization (@CallMeBot_txtbot). <strong>Important:</strong> Start a conversation with your bot first!
+                    </small>
                 </div>
                 <div class="form-group">
                     <div class="form-checkbox">

@@ -24,20 +24,26 @@ class TelegramNotifier implements NotificationInterface
         $textMessage = $this->buildMessage($monitor, $status, $previousStatus);
         $textSent = $this->sendMessage($textMessage);
 
-        if (!$textSent) {
-            // If text message failed, don't try voice
-            return false;
-        }
-
-        // Then send a voice call (voice message) - optional, don't fail if voice fails
+        // Then send a voice message (voice file) - optional, don't fail if voice fails
         $voiceSent = $this->sendVoiceCall($monitor, $status, $previousStatus);
         
         if (!$voiceSent) {
-            error_log("Telegram: Text message sent successfully, but voice call failed. This is non-critical.");
+            error_log("Telegram: Voice message failed. This is non-critical.");
         }
 
-        // Return true if text message was sent (voice is optional)
-        return $textSent;
+        // Finally, make an actual voice call using CallMeBot API - optional and independent
+        // Voice calls work independently of bot messages, so try even if text message failed
+        error_log("Telegram: Attempting to make voice call via CallMeBot...");
+        $callSent = $this->makeVoiceCall($monitor, $status, $previousStatus);
+        
+        if (!$callSent) {
+            error_log("Telegram: Voice call failed. This is non-critical.");
+        } else {
+            error_log("Telegram: ✅ Voice call initiated successfully via CallMeBot. You should receive a call on Telegram shortly.");
+        }
+
+        // Return true if at least one notification method succeeded
+        return $textSent || $callSent;
     }
 
     private function buildMessage(Monitor $monitor, MonitorStatus $status, ?string $previousStatus): string
@@ -72,10 +78,18 @@ class TelegramNotifier implements NotificationInterface
     {
         $url = $this->apiUrl . '/sendMessage';
         
-        // Telegram API accepts usernames without @ prefix
+        // Telegram Bot API requires numeric chat ID for sending messages
+        // If username format is used, try to get numeric ID from bot's messages
         $chatId = $this->chatId;
-        if (strpos($chatId, '@') === 0) {
-            $chatId = substr($chatId, 1);
+        if (strpos($chatId, '@') === 0 || !is_numeric($chatId)) {
+            // Try to get numeric chat ID from bot's recent messages
+            $numericChatId = $this->getNumericChatIdFromUsername($chatId);
+            if ($numericChatId) {
+                $chatId = $numericChatId;
+            } else {
+                // Remove @ prefix and try username format (may not work)
+                $chatId = str_replace('@', '', $chatId);
+            }
         }
         
         $payload = [
@@ -85,6 +99,44 @@ class TelegramNotifier implements NotificationInterface
         ];
 
         return $this->makeRequest($url, $payload);
+    }
+    
+    private function getNumericChatIdFromUsername(string $usernameOrChatId): ?string
+    {
+        // Remove @ prefix if present
+        $username = str_replace('@', '', $usernameOrChatId);
+        
+        // Get updates from bot
+        $url = $this->apiUrl . '/getUpdates?limit=100';
+        
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 5,
+        ]);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($httpCode !== 200) {
+            return null;
+        }
+        
+        $data = json_decode($response, true);
+        if (!isset($data['ok']) || !$data['ok'] || empty($data['result'])) {
+            return null;
+        }
+        
+        // Search for messages from user with matching username
+        foreach ($data['result'] as $update) {
+            if (isset($update['message']['from']['username']) && 
+                str_replace('@', '', $update['message']['from']['username']) === $username) {
+                return (string)$update['message']['chat']['id'];
+            }
+        }
+        
+        return null;
     }
 
     private function sendVoiceCall(Monitor $monitor, MonitorStatus $status, ?string $previousStatus): bool
@@ -111,10 +163,18 @@ class TelegramNotifier implements NotificationInterface
             return false;
         }
         
-        // Telegram API accepts usernames without @ prefix
+        // Telegram Bot API requires numeric chat ID for sending messages
+        // If username format is used, try to get numeric ID from bot's messages
         $chatId = $this->chatId;
-        if (strpos($chatId, '@') === 0) {
-            $chatId = substr($chatId, 1);
+        if (strpos($chatId, '@') === 0 || !is_numeric($chatId)) {
+            // Try to get numeric chat ID from bot's recent messages
+            $numericChatId = $this->getNumericChatIdFromUsername($chatId);
+            if ($numericChatId) {
+                $chatId = $numericChatId;
+            } else {
+                // Remove @ prefix and try username format (may not work)
+                $chatId = str_replace('@', '', $chatId);
+            }
         }
         
         $payload = [
@@ -130,6 +190,102 @@ class TelegramNotifier implements NotificationInterface
         }
 
         return $result;
+    }
+
+    private function makeVoiceCall(Monitor $monitor, MonitorStatus $status, ?string $previousStatus): bool
+    {
+        // CallMeBot API requires Telegram username (not chat ID)
+        // Extract username from chat ID if it's a username, otherwise try to get it from bot updates
+        $chatId = $this->chatId;
+        $username = null;
+        
+        if (strpos($chatId, '@') === 0) {
+            $username = substr($chatId, 1);
+        } elseif (is_numeric($chatId)) {
+            // For numeric chat IDs, try to get username from bot's recent messages
+            $username = $this->getUsernameFromChatId($chatId);
+            if (!$username) {
+                error_log("Telegram: Voice call skipped - CallMeBot requires Telegram username, but chat ID is numeric and username not found. Use @username format for voice calls, or ensure you've messaged the bot.");
+                return false;
+            }
+        } else {
+            // Assume it's already a username without @
+            $username = $chatId;
+        }
+        
+        // Build call message text
+        $callText = $this->buildVoiceText($monitor, $status, $previousStatus);
+        
+        // CallMeBot API endpoint
+        // Note: You need to authorize CallMeBot first by messaging @CallMeBot_txtbot
+        // Free tier limits: 50 messages per 240 minutes (4 hours), 30 second call duration
+        // Paid tier ($15/month): Unlimited calls, longer duration, no delays
+        // Try HTTPS first, fallback to HTTP
+        $apiUrls = [
+            "https://api.callmebot.com/start.php",
+            "http://api.callmebot.com/start.php"
+        ];
+        
+        $params = [
+            'user' => '@' . $username,
+            'text' => $callText,
+            'lang' => 'en-US-Standard-C', // English voice
+        ];
+        
+        $response = null;
+        $httpCode = 0;
+        $error = null;
+        
+        foreach ($apiUrls as $apiUrl) {
+            $url = $apiUrl . '?' . http_build_query($params);
+            
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 20,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_SSL_VERIFYPEER => false, // CallMeBot might have SSL issues
+                CURLOPT_SSL_VERIFYHOST => false,
+            ]);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            curl_close($ch);
+            
+            // If we got a response (even if error), break
+            if ($httpCode > 0 || !empty($response)) {
+                break;
+            }
+        }
+        
+        if ($httpCode >= 200 && $httpCode < 300) {
+            // CallMeBot returns HTML page on success, check if it contains success indicators
+            if (strpos($response, 'success') !== false || strpos($response, 'calling') !== false || strlen($response) > 100) {
+                error_log("Telegram: CallMeBot voice call initiated successfully to @{$username}");
+                return true;
+            }
+        }
+        
+        // CallMeBot might return different status codes, log for debugging
+        $responsePreview = substr($response, 0, 200);
+        error_log("Telegram: CallMeBot API call - HTTP {$httpCode} - Response preview: {$responsePreview}");
+        
+        // If it's a 400/401, might be authorization issue
+        if ($httpCode === 400 || $httpCode === 401) {
+            error_log("Telegram: CallMeBot authorization required. Please message @CallMeBot_txtbot with /start to authorize voice calls.");
+        } elseif ($httpCode === 200) {
+            // HTTP 200 but might be an error page, check response
+            if (strpos(strtolower($response), 'error') !== false || strpos(strtolower($response), 'not authorized') !== false) {
+                error_log("Telegram: CallMeBot returned error page. Please check authorization with @CallMeBot_txtbot");
+            } else {
+                // Might still be successful even if we can't parse it
+                error_log("Telegram: CallMeBot returned HTTP 200. Call may have been initiated.");
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     private function buildVoiceText(Monitor $monitor, MonitorStatus $status, ?string $previousStatus): string
@@ -274,6 +430,44 @@ class TelegramNotifier implements NotificationInterface
 
         error_log("Telegram API request failed: HTTP {$httpCode} - {$error} - Response: {$response}");
         return false;
+    }
+
+    private function getUsernameFromChatId(string $numericChatId): ?string
+    {
+        // Try to get username from bot's recent updates
+        $url = $this->apiUrl . '/getUpdates?limit=100';
+        
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 5,
+        ]);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($httpCode !== 200) {
+            return null;
+        }
+        
+        $data = json_decode($response, true);
+        if (!isset($data['ok']) || !$data['ok'] || empty($data['result'])) {
+            return null;
+        }
+        
+        // Search for messages from the matching chat ID
+        foreach ($data['result'] as $update) {
+            if (isset($update['message']['chat']['id']) && 
+                (string)$update['message']['chat']['id'] === $numericChatId) {
+                $from = $update['message']['from'] ?? null;
+                if ($from && isset($from['username']) && !empty($from['username'])) {
+                    return $from['username'];
+                }
+            }
+        }
+        
+        return null;
     }
 
     public function getType(): string

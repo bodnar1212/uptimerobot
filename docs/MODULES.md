@@ -117,6 +117,10 @@ $data = $user->toArray();
 - `timeoutSeconds` (int): Request timeout (1-300 seconds)
 - `enabled` (bool): Whether monitoring is active
 - `discordWebhookUrl` (string|null): Discord webhook for notifications
+- `telegramBotToken` (string|null): Telegram bot token from @BotFather
+- `telegramChatId` (string|null): Telegram chat ID or username
+  - **For text & voice messages:** Use numeric ID (e.g., `123456789`). Get it by messaging @userinfobot
+  - **For voice calls:** Use username format (e.g., `@yourusername`). Requires CallMeBot authorization (@CallMeBot_txtbot)
 - `createdAt` (DateTime): Creation timestamp
 - `updatedAt` (DateTime): Last update timestamp
 
@@ -1079,6 +1083,65 @@ $success = $notifier->send($monitor, $status, 'up');
 
 ---
 
+### TelegramNotifier (`src/Notification/TelegramNotifier.php`)
+
+**Purpose**: Sends notifications via Telegram Bot API, including text messages, voice messages, and voice calls.
+
+**Implementation**: Implements NotificationInterface
+
+**Constructor**:
+```php
+public function __construct(string $botToken, string $chatId)
+```
+
+**Parameters**:
+- `botToken`: Telegram bot token from @BotFather
+- `chatId`: Telegram chat ID or username
+  - **For text & voice messages:** Use numeric ID (e.g., `123456789`). Get it by messaging @userinfobot
+  - **For voice calls:** Use username format (e.g., `@yourusername`). Requires CallMeBot authorization (@CallMeBot_txtbot)
+  - **Important:** Start a conversation with your bot first by sending it a message!
+
+**Features**:
+- Text messages via Telegram Bot API
+- Voice messages (audio files) via Telegram Bot API
+- Voice calls via CallMeBot API (requires username format)
+- Text-to-Speech (TTS) generation using `espeak` (Linux) or `say` (macOS)
+- Automatic format detection (numeric ID vs username)
+
+**Notification Sequence**:
+1. Text message sent via bot
+2. Voice message (audio file) sent via bot
+3. Voice call via CallMeBot (if username format is used and CallMeBot is authorized)
+
+**CallMeBot Limits**:
+- **Free Tier:**
+  - 50 messages per 240 minutes (4 hours)
+  - Calls limited to 30 seconds
+  - Requires prior authentication (message @CallMeBot_txtbot first)
+- **Paid Tier ($15/month):**
+  - Unlimited calls
+  - Longer call duration (beyond 30 seconds)
+  - No delays (personal queue)
+  - Can call any recipient without prior authentication
+
+**Chat ID Format**:
+- **Numeric ID** (`123456789`): Used for text and voice messages. Most reliable format.
+- **Username** (`@yourusername`): Required for voice calls via CallMeBot. Also works for text/voice messages.
+
+**Error Handling**:
+- Logs errors to error_log
+- Returns false on failure
+- Doesn't throw exceptions
+- Gracefully skips voice call if TTS fails or CallMeBot is not authorized
+
+**Usage**:
+```php
+$notifier = new TelegramNotifier('123456789:ABCdefGHIjklMNOpqrsTUVwxyz', '123456789');
+$success = $notifier->send($monitor, $status, 'up');
+```
+
+---
+
 ### NotificationFactory (`src/Notification/NotificationFactory.php`)
 
 **Purpose**: Creates notifier instances based on type.
@@ -1103,6 +1166,7 @@ public static function create(string $type, array $config): NotificationInterfac
 
 **Current Types**:
 - `discord`: Requires `webhook_url` in config
+- `telegram`: Requires `bot_token` and `chat_id` in config
 
 **Errors**:
 - `InvalidArgumentException`: Unsupported notification type
@@ -1116,6 +1180,10 @@ To add a new notifier:
 ```php
 return match ($type) {
     'discord' => new DiscordNotifier($config['webhook_url'] ?? ''),
+    'telegram' => new TelegramNotifier(
+        $config['bot_token'] ?? '',
+        $config['chat_id'] ?? ''
+    ),
     'email' => new EmailNotifier($config['smtp_config'] ?? []),
     default => throw new \InvalidArgumentException("Unsupported type: {$type}"),
 };

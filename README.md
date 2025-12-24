@@ -61,11 +61,29 @@ To configure Telegram notifications:
    - Open Telegram and search for your bot
    - Send it a message (e.g., `/start` or `Hello`)
 
-4. **Configure your monitor:**
+4. **Enable voice calls (optional):**
+   - For actual phone calls via Telegram, authorize CallMeBot:
+     - Message @CallMeBot_txtbot on Telegram
+     - Send `/start` to authorize
+   - **CallMeBot Limits (Free Tier):**
+     - 50 messages per 240 minutes (4 hours)
+     - Calls limited to 30 seconds
+     - Requires prior authentication
+   - **Paid Tier ($15/month):** Unlimited calls, longer duration, no delays
+
+5. **Configure your monitor:**
    - Via Admin Panel: Add bot token and chat ID
    - Via API: Include `telegram_bot_token` and `telegram_chat_id` in monitor creation/update
 
-**Note:** Use numeric chat IDs (not usernames) for best reliability.
+**Chat ID Format:**
+- **For text & voice messages:** Use numeric ID (e.g., `123456789`). Get it by messaging @userinfobot
+- **For voice calls:** Use username format (e.g., `@yourusername`). Requires CallMeBot authorization (@CallMeBot_txtbot)
+- **Important:** Start a conversation with your bot first by sending it a message!
+
+**What you'll receive:**
+- Text message (via your bot)
+- Voice message/audio file (via your bot)
+- Voice call/phone call (via CallMeBot, if username format is used)
 
 ## License
 
