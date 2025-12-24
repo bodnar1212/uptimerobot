@@ -1,0 +1,739 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "UptimeRobot API",
+    "description": "REST API for uptime monitoring service. Monitor URLs, track status, and receive notifications.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "API Support",
+      "url": "http://localhost:8000/admin"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Development server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "API key for authentication (required header)"
+      }
+    },
+    "schemas": {
+      "Monitor": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Monitor ID",
+            "example": 1
+          },
+          "user_id": {
+            "type": "integer",
+            "description": "User ID that owns this monitor",
+            "example": 1
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to monitor",
+            "example": "https://example.com"
+          },
+          "interval_seconds": {
+            "type": "integer",
+            "description": "Check interval in seconds",
+            "minimum": 60,
+            "maximum": 86400,
+            "example": 300
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "description": "Request timeout in seconds",
+            "minimum": 1,
+            "maximum": 300,
+            "example": 30
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether monitoring is enabled",
+            "example": true
+          },
+          "discord_webhook_url": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "description": "Discord webhook URL for notifications",
+            "example": "https://discord.com/api/webhooks/..."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp",
+            "example": "2025-12-24 10:00:00"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp",
+            "example": "2025-12-24 10:00:00"
+          }
+        },
+        "required": ["id", "user_id", "url", "interval_seconds", "timeout_seconds", "enabled", "created_at", "updated_at"]
+      },
+      "MonitorStatus": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "monitor_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "status": {
+            "type": "string",
+                      "enum": ["up", "down"],
+            "description": "Monitor status",
+            "example": "up"
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2025-12-24 10:05:00"
+          },
+          "response_time_ms": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Response time in milliseconds",
+            "example": 150
+          },
+          "http_status_code": {
+            "type": "integer",
+            "nullable": true,
+            "description": "HTTP status code",
+            "example": 200
+          },
+          "error_message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Error message if check failed",
+            "example": null
+          }
+        }
+      },
+      "MonitorWithStatuses": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Monitor"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "recent_statuses": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/MonitorStatus"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CreateMonitorRequest": {
+        "type": "object",
+        "required": ["url"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to monitor (must be HTTP or HTTPS)",
+            "example": "https://example.com"
+          },
+          "interval_seconds": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 86400,
+            "default": 300,
+            "description": "Check interval in seconds",
+            "example": 300
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300,
+            "default": 30,
+            "description": "Request timeout in seconds",
+            "example": 30
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether monitoring is enabled",
+            "example": true
+          },
+          "discord_webhook_url": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "description": "Discord webhook URL for notifications",
+            "example": "https://discord.com/api/webhooks/..."
+          }
+        }
+      },
+      "UpdateMonitorRequest": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to monitor",
+            "example": "https://newexample.com"
+          },
+          "interval_seconds": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 86400,
+            "description": "Check interval in seconds",
+            "example": 600
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300,
+            "description": "Request timeout in seconds",
+            "example": 45
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether monitoring is enabled",
+            "example": false
+          },
+          "discord_webhook_url": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "description": "Discord webhook URL for notifications (set to null to remove)",
+            "example": null
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error message",
+            "example": "Unauthorized: Invalid or missing API key"
+          }
+        },
+        "required": ["error"]
+      },
+      "SuccessMessage": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Monitor deleted successfully"
+          }
+        },
+        "required": ["message"]
+      }
+    }
+  },
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ],
+  "paths": {
+    "/api/monitors": {
+      "get": {
+        "tags": ["Monitors"],
+        "summary": "List all monitors",
+        "description": "Get a list of all monitors for the authenticated user",
+        "operationId": "listMonitors",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "monitors": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Monitor"
+                      }
+                    }
+                  },
+                  "required": ["monitors"]
+                },
+                "example": {
+                  "monitors": [
+                    {
+                      "id": 1,
+                      "user_id": 1,
+                      "url": "https://example.com",
+                      "interval_seconds": 300,
+                      "timeout_seconds": 30,
+                      "enabled": true,
+                      "discord_webhook_url": null,
+                      "created_at": "2025-12-24 10:00:00",
+                      "updated_at": "2025-12-24 10:00:00"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Monitors"],
+        "summary": "Create a new monitor",
+        "description": "Create a new monitor for a URL",
+        "operationId": "createMonitor",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMonitorRequest"
+              },
+              "example": {
+                "url": "https://example.com",
+                "interval_seconds": 300,
+                "timeout_seconds": 30,
+                "enabled": true,
+                "discord_webhook_url": "https://discord.com/api/webhooks/..."
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Monitor created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "monitor": {
+                      "$ref": "#/components/schemas/Monitor"
+                    }
+                  },
+                  "required": ["monitor"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/monitors/{id}": {
+      "get": {
+        "tags": ["Monitors"],
+        "summary": "Get monitor by ID",
+        "description": "Get detailed information about a specific monitor, including recent statuses",
+        "operationId": "getMonitor",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Monitor ID",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "monitor": {
+                      "$ref": "#/components/schemas/MonitorWithStatuses"
+                    }
+                  },
+                  "required": ["monitor"]
+                },
+                "example": {
+                  "monitor": {
+                    "id": 1,
+                    "user_id": 1,
+                    "url": "https://example.com",
+                    "interval_seconds": 300,
+                    "timeout_seconds": 30,
+                    "enabled": true,
+                    "discord_webhook_url": null,
+                    "created_at": "2025-12-24 10:00:00",
+                    "updated_at": "2025-12-24 10:00:00",
+                    "recent_statuses": [
+                      {
+                        "id": 1,
+                        "monitor_id": 1,
+                        "status": "up",
+                        "checked_at": "2025-12-24 10:05:00",
+                        "response_time_ms": 150,
+                        "http_status_code": 200,
+                        "error_message": null
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Monitor not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Monitors"],
+        "summary": "Update monitor",
+        "description": "Update an existing monitor. All fields are optional - only provided fields will be updated.",
+        "operationId": "updateMonitor",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Monitor ID",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMonitorRequest"
+              },
+              "example": {
+                "interval_seconds": 600,
+                "enabled": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Monitor updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "monitor": {
+                      "$ref": "#/components/schemas/Monitor"
+                    }
+                  },
+                  "required": ["monitor"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Monitor not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Monitors"],
+        "summary": "Delete monitor",
+        "description": "Delete a monitor",
+        "operationId": "deleteMonitor",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Monitor ID",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Monitor deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessMessage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Monitor not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/monitors/{id}/test-notification": {
+      "post": {
+        "tags": ["Monitors"],
+        "summary": "Test Discord notification",
+        "description": "Manually trigger a test Discord notification for a monitor. Useful for testing webhook configuration.",
+        "operationId": "testNotification",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Monitor ID",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                      "enum": ["up", "down"],
+                    "default": "up",
+                    "description": "Test status to send",
+                    "example": "up"
+                  },
+                  "message": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Custom message (optional). If provided, sends custom test message instead of standard notification format.",
+                    "example": "This is a test notification"
+                  },
+                  "response_time_ms": {
+                    "type": "integer",
+                    "default": 150,
+                    "description": "Response time in milliseconds (for standard notification)",
+                    "example": 150
+                  },
+                  "http_status_code": {
+                    "type": "integer",
+                    "default": 200,
+                    "description": "HTTP status code (for standard notification)",
+                    "example": 200
+                  },
+                  "error_message": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Error message (for standard notification)",
+                    "example": null
+                  }
+                }
+              },
+              "example": {
+                "status": "up",
+                "message": "Test notification from API"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Test notification sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Test notification sent successfully"
+                    },
+                    "monitor_id": {
+                      "type": "integer",
+                      "example": 1
+                    },
+                    "status": {
+                      "type": "string",
+                      "example": "up"
+                    },
+                    "webhook_url": {
+                      "type": "string",
+                      "format": "uri",
+                      "example": "https://discord.com/api/webhooks/..."
+                    },
+                    "status_code": {
+                      "type": "integer",
+                      "description": "HTTP status code from Discord (only for custom messages)",
+                      "example": 204
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or webhook not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Discord webhook URL is not configured for this monitor"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Monitor not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to send notification to Discord",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Failed to send notification. Discord returned HTTP 404: Not Found"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Monitors",
+      "description": "Monitor management endpoints"
+    }
+  ]
+}
+

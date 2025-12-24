@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: uptimerobot_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: uptimerobot
+      MYSQL_USER: uptimerobot
+      MYSQL_PASSWORD: uptimerobot
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - uptimerobot_network
+
+  php:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: uptimerobot_php
+    volumes:
+      - .:/var/www/html
+      - ./config:/var/www/html/config
+    working_dir: /var/www/html
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: uptimerobot
+      DB_USER: uptimerobot
+      DB_PASSWORD: uptimerobot
+    ports:
+      - "8000:8000"
+    networks:
+      - uptimerobot_network
+    command: php -S 0.0.0.0:8000 -t public
+    restart: unless-stopped
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: uptimerobot_scheduler
+    volumes:
+      - .:/var/www/html
+      - ./config:/var/www/html/config
+    working_dir: /var/www/html
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: uptimerobot
+      DB_USER: uptimerobot
+      DB_PASSWORD: uptimerobot
+      SCHEDULER_INTERVAL: 30
+    networks:
+      - uptimerobot_network
+    command: php bin/scheduler.php
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: uptimerobot_worker
+    volumes:
+      - .:/var/www/html
+      - ./config:/var/www/html/config
+    working_dir: /var/www/html
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: uptimerobot
+      DB_USER: uptimerobot
+      DB_PASSWORD: uptimerobot
+      WORKER_CONCURRENCY: 50
+    networks:
+      - uptimerobot_network
+    command: php bin/worker.php
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+
+networks:
+  uptimerobot_network:
+    driver: bridge
+

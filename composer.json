@@ -1,0 +1,28 @@
+{
+    "name": "uptimerobot/monitoring-saas",
+    "description": "Uptime monitoring SaaS MVP",
+    "type": "project",
+    "require": {
+        "php": ">=8.2",
+        "ext-pdo": "*",
+        "ext-curl": "*",
+        "ext-json": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "UptimeRobot\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "UptimeRobot\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
+
