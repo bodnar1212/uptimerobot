@@ -35,8 +35,37 @@ docker-compose exec php php bin/worker.php
 - Queue-based worker architecture
 - Status tracking (up/down) with response times
 - Discord notifications via webhooks
+- Telegram notifications with voice calls
 - REST API for monitor management
 - Admin panel and public status page
+
+## Telegram Notifications Setup
+
+To configure Telegram notifications:
+
+1. **Create a bot:**
+   - Message @BotFather on Telegram
+   - Send `/newbot` and follow instructions
+   - Save your bot token
+
+2. **Get your Chat ID:**
+   ```bash
+   # Method 1: Use the helper script (recommended)
+   docker exec uptimerobot_php php bin/get-telegram-chat-id.php YOUR_BOT_TOKEN
+   
+   # Method 2: Send a message to @userinfobot
+   # It will reply with your user ID (a number)
+   ```
+
+3. **Start a conversation with your bot:**
+   - Open Telegram and search for your bot
+   - Send it a message (e.g., `/start` or `Hello`)
+
+4. **Configure your monitor:**
+   - Via Admin Panel: Add bot token and chat ID
+   - Via API: Include `telegram_bot_token` and `telegram_chat_id` in monitor creation/update
+
+**Note:** Use numeric chat IDs (not usernames) for best reliability.
 
 ## License
 

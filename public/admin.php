@@ -134,6 +134,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $timeoutSeconds = (int)($_POST['timeout_seconds'] ?? 30);
             $enabled = isset($_POST['enabled']) && $_POST['enabled'] === '1';
             $discordWebhookUrl = trim($_POST['discord_webhook_url'] ?? '') ?: null;
+            $telegramBotToken = trim($_POST['telegram_bot_token'] ?? '') ?: null;
+            $telegramChatId = trim($_POST['telegram_chat_id'] ?? '') ?: null;
             
             $monitor = $monitorService->create(
                 $userId,
@@ -141,7 +143,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $intervalSeconds,
                 $timeoutSeconds,
                 $enabled,
-                $discordWebhookUrl
+                $discordWebhookUrl,
+                $telegramBotToken,
+                $telegramChatId
             );
             
             $message = "Monitor created successfully!";
@@ -166,6 +170,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $timeoutSeconds = isset($_POST['timeout_seconds']) ? (int)$_POST['timeout_seconds'] : null;
             $enabled = isset($_POST['enabled']) ? ($_POST['enabled'] === '1') : null;
             $discordWebhookUrl = isset($_POST['discord_webhook_url']) ? (trim($_POST['discord_webhook_url']) ?: null) : null;
+            $telegramBotToken = isset($_POST['telegram_bot_token']) ? (trim($_POST['telegram_bot_token']) ?: null) : null;
+            $telegramChatId = isset($_POST['telegram_chat_id']) ? (trim($_POST['telegram_chat_id']) ?: null) : null;
             
             $monitor = $monitorService->update(
                 $monitorId,
@@ -174,7 +180,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $intervalSeconds,
                 $timeoutSeconds,
                 $enabled,
-                $discordWebhookUrl
+                $discordWebhookUrl,
+                $telegramBotToken,
+                $telegramChatId
             );
             
             $message = "Monitor updated successfully!";
@@ -1212,6 +1220,16 @@ $stats = $statsStmt->fetch();
                     <small>Optional. Get webhook URL from Discord: Server Settings → Integrations → Webhooks → New Webhook</small>
                 </div>
                 <div class="form-group">
+                    <label for="create_telegram_token">Telegram Bot Token</label>
+                    <input type="text" name="telegram_bot_token" id="create_telegram_token" placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz">
+                    <small>Optional. Get bot token from @BotFather on Telegram</small>
+                </div>
+                <div class="form-group">
+                    <label for="create_telegram_chat">Telegram Chat ID</label>
+                    <input type="text" name="telegram_chat_id" id="create_telegram_chat" placeholder="123456789">
+                    <small>Optional. Your Telegram user ID or chat ID. Send a message to @userinfobot to get your ID</small>
+                </div>
+                <div class="form-group">
                     <div class="form-checkbox">
                         <input type="checkbox" name="enabled" id="create_enabled" value="1" checked>
                         <label for="create_enabled">Enabled</label>
@@ -1254,6 +1272,16 @@ $stats = $statsStmt->fetch();
                     <label for="edit_webhook">Discord Webhook URL</label>
                     <input type="url" name="discord_webhook_url" id="edit_webhook" placeholder="https://discord.com/api/webhooks/...">
                     <small>Leave empty to remove webhook</small>
+                </div>
+                <div class="form-group">
+                    <label for="edit_telegram_token">Telegram Bot Token</label>
+                    <input type="text" name="telegram_bot_token" id="edit_telegram_token" placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz">
+                    <small>Leave empty to remove. Get bot token from @BotFather on Telegram</small>
+                </div>
+                <div class="form-group">
+                    <label for="edit_telegram_chat">Telegram Chat ID</label>
+                    <input type="text" name="telegram_chat_id" id="edit_telegram_chat" placeholder="123456789">
+                    <small>Leave empty to remove. Send a message to @userinfobot to get your ID</small>
                 </div>
                 <div class="form-group">
                     <div class="form-checkbox">
@@ -1404,6 +1432,8 @@ $stats = $statsStmt->fetch();
             document.getElementById('edit_interval').value = monitor.interval_seconds;
             document.getElementById('edit_timeout').value = monitor.timeout_seconds;
             document.getElementById('edit_webhook').value = monitor.discord_webhook_url || '';
+            document.getElementById('edit_telegram_token').value = monitor.telegram_bot_token || '';
+            document.getElementById('edit_telegram_chat').value = monitor.telegram_chat_id || '';
             document.getElementById('edit_enabled').checked = monitor.enabled == 1;
             document.getElementById('editModal').style.display = 'block';
         }

@@ -11,6 +11,8 @@ class Monitor
     private int $timeoutSeconds;
     private bool $enabled;
     private ?string $discordWebhookUrl;
+    private ?string $telegramBotToken;
+    private ?string $telegramChatId;
     private \DateTime $createdAt;
     private \DateTime $updatedAt;
 
@@ -21,6 +23,8 @@ class Monitor
         int $timeoutSeconds = 30,
         bool $enabled = true,
         ?string $discordWebhookUrl = null,
+        ?string $telegramBotToken = null,
+        ?string $telegramChatId = null,
         ?int $id = null,
         ?\DateTime $createdAt = null,
         ?\DateTime $updatedAt = null
@@ -31,6 +35,8 @@ class Monitor
         $this->timeoutSeconds = $timeoutSeconds;
         $this->enabled = $enabled;
         $this->discordWebhookUrl = $discordWebhookUrl;
+        $this->telegramBotToken = $telegramBotToken;
+        $this->telegramChatId = $telegramChatId;
         $this->id = $id;
         $this->createdAt = $createdAt ?? new \DateTime();
         $this->updatedAt = $updatedAt ?? new \DateTime();
@@ -106,6 +112,26 @@ class Monitor
         $this->discordWebhookUrl = $discordWebhookUrl;
     }
 
+    public function getTelegramBotToken(): ?string
+    {
+        return $this->telegramBotToken;
+    }
+
+    public function setTelegramBotToken(?string $telegramBotToken): void
+    {
+        $this->telegramBotToken = $telegramBotToken;
+    }
+
+    public function getTelegramChatId(): ?string
+    {
+        return $this->telegramChatId;
+    }
+
+    public function setTelegramChatId(?string $telegramChatId): void
+    {
+        $this->telegramChatId = $telegramChatId;
+    }
+
     public function getCreatedAt(): \DateTime
     {
         return $this->createdAt;
@@ -135,6 +161,8 @@ class Monitor
             $data['timeout_seconds'] ?? 30,
             $data['enabled'] ?? true,
             $data['discord_webhook_url'] ?? null,
+            $data['telegram_bot_token'] ?? null,
+            $data['telegram_chat_id'] ?? null,
             $data['id'] ?? null,
             isset($data['created_at']) ? new \DateTime($data['created_at']) : null,
             isset($data['updated_at']) ? new \DateTime($data['updated_at']) : null
@@ -152,6 +180,8 @@ class Monitor
             'timeout_seconds' => $this->timeoutSeconds,
             'enabled' => $this->enabled,
             'discord_webhook_url' => $this->discordWebhookUrl,
+            'telegram_bot_token' => $this->telegramBotToken,
+            'telegram_chat_id' => $this->telegramChatId,
             'created_at' => $this->createdAt->format('Y-m-d H:i:s'),
             'updated_at' => $this->updatedAt->format('Y-m-d H:i:s'),
         ];

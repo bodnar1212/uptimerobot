@@ -67,22 +67,32 @@ class NotificationService
      */
     private function sendNotification(Monitor $monitor, MonitorStatus $status, ?string $previousStatus): void
     {
-        // Get webhook URL from monitor
-        $webhookUrl = $monitor->getDiscordWebhookUrl();
-
-        if (empty($webhookUrl)) {
-            // No webhook configured, skip notification
-            return;
+        // Send Discord notification if configured
+        $discordWebhookUrl = $monitor->getDiscordWebhookUrl();
+        if (!empty($discordWebhookUrl)) {
+            try {
+                $notifier = NotificationFactory::create('discord', [
+                    'webhook_url' => $discordWebhookUrl,
+                ]);
+                $notifier->send($monitor, $status, $previousStatus);
+            } catch (\Exception $e) {
+                error_log("Failed to send Discord notification: " . $e->getMessage());
+            }
         }
 
-        try {
-            $notifier = NotificationFactory::create('discord', [
-                'webhook_url' => $webhookUrl,
-            ]);
-
-            $notifier->send($monitor, $status, $previousStatus);
-        } catch (\Exception $e) {
-            error_log("Failed to send notification: " . $e->getMessage());
+        // Send Telegram notification if configured
+        $telegramBotToken = $monitor->getTelegramBotToken();
+        $telegramChatId = $monitor->getTelegramChatId();
+        if (!empty($telegramBotToken) && !empty($telegramChatId)) {
+            try {
+                $notifier = NotificationFactory::create('telegram', [
+                    'bot_token' => $telegramBotToken,
+                    'chat_id' => $telegramChatId,
+                ]);
+                $notifier->send($monitor, $status, $previousStatus);
+            } catch (\Exception $e) {
+                error_log("Failed to send Telegram notification: " . $e->getMessage());
+            }
         }
     }
 }

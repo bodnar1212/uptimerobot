@@ -44,8 +44,8 @@ class MonitorRepository
     public function create(Monitor $monitor): Monitor
     {
         $stmt = $this->db->prepare(
-            'INSERT INTO monitors (user_id, url, interval_seconds, timeout_seconds, enabled, discord_webhook_url, created_at, updated_at) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO monitors (user_id, url, interval_seconds, timeout_seconds, enabled, discord_webhook_url, telegram_bot_token, telegram_chat_id, created_at, updated_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
             $monitor->getUserId(),
@@ -54,6 +54,8 @@ class MonitorRepository
             $monitor->getTimeoutSeconds(),
             $monitor->isEnabled() ? 1 : 0,
             $monitor->getDiscordWebhookUrl(),
+            $monitor->getTelegramBotToken(),
+            $monitor->getTelegramChatId(),
             $monitor->getCreatedAt()->format('Y-m-d H:i:s'),
             $monitor->getUpdatedAt()->format('Y-m-d H:i:s'),
         ]);
@@ -65,7 +67,7 @@ class MonitorRepository
     public function update(Monitor $monitor): void
     {
         $stmt = $this->db->prepare(
-            'UPDATE monitors SET url = ?, interval_seconds = ?, timeout_seconds = ?, enabled = ?, discord_webhook_url = ?, updated_at = ? WHERE id = ?'
+            'UPDATE monitors SET url = ?, interval_seconds = ?, timeout_seconds = ?, enabled = ?, discord_webhook_url = ?, telegram_bot_token = ?, telegram_chat_id = ?, updated_at = ? WHERE id = ?'
         );
         $stmt->execute([
             $monitor->getUrl(),
@@ -73,6 +75,8 @@ class MonitorRepository
             $monitor->getTimeoutSeconds(),
             $monitor->isEnabled() ? 1 : 0,
             $monitor->getDiscordWebhookUrl(),
+            $monitor->getTelegramBotToken(),
+            $monitor->getTelegramChatId(),
             $monitor->getUpdatedAt()->format('Y-m-d H:i:s'),
             $monitor->getId(),
         ]);

@@ -110,6 +110,8 @@ if ($path === '/api/monitors' || strpos($path, '/api/monitors/') === 0) {
         $timeoutSeconds = $data['timeout_seconds'] ?? 30;
         $enabled = $data['enabled'] ?? true;
         $discordWebhookUrl = $data['discord_webhook_url'] ?? null;
+        $telegramBotToken = $data['telegram_bot_token'] ?? null;
+        $telegramChatId = $data['telegram_chat_id'] ?? null;
 
         if (!$url) {
             errorResponse('URL is required');
@@ -122,7 +124,9 @@ if ($path === '/api/monitors' || strpos($path, '/api/monitors/') === 0) {
                 $intervalSeconds,
                 $timeoutSeconds,
                 $enabled,
-                $discordWebhookUrl
+                $discordWebhookUrl,
+                $telegramBotToken,
+                $telegramChatId
             );
             jsonResponse(['monitor' => $monitor->toArray()], 201);
         } catch (\Exception $e) {
@@ -159,7 +163,9 @@ if ($path === '/api/monitors' || strpos($path, '/api/monitors/') === 0) {
                 $data['interval_seconds'] ?? null,
                 $data['timeout_seconds'] ?? null,
                 $data['enabled'] ?? null,
-                $data['discord_webhook_url'] ?? null
+                $data['discord_webhook_url'] ?? null,
+                $data['telegram_bot_token'] ?? null,
+                $data['telegram_chat_id'] ?? null
             );
             jsonResponse(['monitor' => $monitor->toArray()]);
         } catch (\Exception $e) {

@@ -26,7 +26,9 @@ class MonitorService
         int $intervalSeconds = 60,
         int $timeoutSeconds = 30,
         bool $enabled = true,
-        ?string $discordWebhookUrl = null
+        ?string $discordWebhookUrl = null,
+        ?string $telegramBotToken = null,
+        ?string $telegramChatId = null
     ): Monitor {
         $this->validateUrl($url);
         $this->validateInterval($intervalSeconds);
@@ -38,7 +40,9 @@ class MonitorService
             $intervalSeconds,
             $timeoutSeconds,
             $enabled,
-            $discordWebhookUrl
+            $discordWebhookUrl,
+            $telegramBotToken,
+            $telegramChatId
         );
 
         $monitor = $this->monitorRepository->create($monitor);
@@ -58,7 +62,9 @@ class MonitorService
         ?int $intervalSeconds = null,
         ?int $timeoutSeconds = null,
         ?bool $enabled = null,
-        ?string $discordWebhookUrl = null
+        ?string $discordWebhookUrl = null,
+        ?string $telegramBotToken = null,
+        ?string $telegramChatId = null
     ): Monitor {
         $monitor = $this->monitorRepository->findById($monitorId);
 
@@ -93,6 +99,14 @@ class MonitorService
 
         if ($discordWebhookUrl !== null) {
             $monitor->setDiscordWebhookUrl($discordWebhookUrl);
+        }
+
+        if ($telegramBotToken !== null) {
+            $monitor->setTelegramBotToken($telegramBotToken);
+        }
+
+        if ($telegramChatId !== null) {
+            $monitor->setTelegramChatId($telegramChatId);
         }
 
         $monitor->setUpdatedAt(new \DateTime());

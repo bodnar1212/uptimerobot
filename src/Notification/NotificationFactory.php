@@ -2,6 +2,9 @@
 
 namespace UptimeRobot\Notification;
 
+use UptimeRobot\Notification\DiscordNotifier;
+use UptimeRobot\Notification\TelegramNotifier;
+
 class NotificationFactory
 {
     /**
@@ -16,6 +19,10 @@ class NotificationFactory
     {
         return match ($type) {
             'discord' => new DiscordNotifier($config['webhook_url'] ?? ''),
+            'telegram' => new TelegramNotifier(
+                $config['bot_token'] ?? '',
+                $config['chat_id'] ?? ''
+            ),
             default => throw new \InvalidArgumentException("Unsupported notification type: {$type}"),
         };
     }
@@ -27,7 +34,7 @@ class NotificationFactory
      */
     public static function getAvailableTypes(): array
     {
-        return ['discord'];
+        return ['discord', 'telegram'];
     }
 }
 
