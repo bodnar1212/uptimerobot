@@ -13,7 +13,7 @@ use UptimeRobot\Service\MonitorService;
 Connection::setConfig(require __DIR__ . '/../config/database.php');
 
 // Parse command line arguments
-$options = getopt('u:i:t:e:w:h', ['url:', 'interval:', 'timeout:', 'enabled:', 'webhook:', 'user:', 'help']);
+$options = getopt('u:i:t:e:w:h', ['url:', 'interval:', 'timeout:', 'enabled:', 'webhook:', 'telegram-token:', 'telegram-chat:', 'user:', 'help']);
 
 if (isset($options['h']) || isset($options['help']) || !isset($options['u']) && !isset($options['url'])) {
     echo "Usage: php create-monitor.php [options]\n";
@@ -24,7 +24,9 @@ if (isset($options['h']) || isset($options['help']) || !isset($options['u']) && 
     echo "  -t, --timeout SECONDS      Request timeout in seconds (default: 30)\n";
     echo "  -e, --enabled 1|0          Enable/disable monitor (default: 1)\n";
     echo "  -w, --webhook URL          Discord webhook URL (optional)\n";
-    echo "  --user EMAIL               User email (required if no API key)\n";
+    echo "  --telegram-token TOKEN     Telegram bot token (optional)\n";
+    echo "  --telegram-chat ID         Telegram chat ID or username (optional)\n";
+    echo "  --user EMAIL               User email (required)\n";
     echo "  -h, --help                 Show this help\n";
     echo "\n";
     echo "Example:\n";
@@ -39,6 +41,8 @@ $enabled = isset($options['e']) || isset($options['enabled'])
     ? (bool)(int)($options['e'] ?? $options['enabled']) 
     : true;
 $webhookUrl = $options['w'] ?? $options['webhook'] ?? null;
+$telegramBotToken = $options['telegram-token'] ?? null;
+$telegramChatId = $options['telegram-chat'] ?? null;
 $userEmail = $options['user'] ?? null;
 
 if (!$url) {
@@ -79,7 +83,9 @@ try {
         $intervalSeconds,
         $timeoutSeconds,
         $enabled,
-        $webhookUrl
+        $webhookUrl,
+        $telegramBotToken,
+        $telegramChatId
     );
 
     echo "Monitor created successfully!\n";
@@ -90,6 +96,9 @@ try {
     echo "Enabled: " . ($monitor->isEnabled() ? 'Yes' : 'No') . "\n";
     if ($monitor->getDiscordWebhookUrl()) {
         echo "Discord Webhook: {$monitor->getDiscordWebhookUrl()}\n";
+    }
+    if ($monitor->getTelegramBotToken() && $monitor->getTelegramChatId()) {
+        echo "Telegram: Configured (Chat ID: {$monitor->getTelegramChatId()})\n";
     }
 } catch (\Exception $e) {
     echo "Error: " . $e->getMessage() . "\n";

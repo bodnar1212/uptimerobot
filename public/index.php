@@ -9,10 +9,6 @@ use UptimeRobot\Repository\MonitorStatusRepository;
 use UptimeRobot\Repository\QueueRepository;
 use UptimeRobot\Repository\SettingsRepository;
 use UptimeRobot\Service\MonitorService;
-use UptimeRobot\Http\HttpClient;
-use UptimeRobot\Service\HttpCheckService;
-use UptimeRobot\Service\NotificationService;
-use UptimeRobot\Service\WorkerService;
 use UptimeRobot\Notification\NotificationFactory;
 use UptimeRobot\Entity\MonitorStatus;
 
@@ -70,9 +66,6 @@ $statusRepository = new MonitorStatusRepository();
 $queueRepository = new QueueRepository();
 
 $monitorService = new MonitorService($monitorRepository, $queueRepository);
-$httpClient = new HttpClient();
-$httpCheckService = new HttpCheckService($httpClient, $monitorRepository);
-$notificationService = new NotificationService($statusRepository);
 
 // Authenticate user
 $user = null;
@@ -182,7 +175,7 @@ if ($path === '/api/monitors' || strpos($path, '/api/monitors/') === 0) {
             errorResponse($e->getMessage(), 400);
         }
     } elseif ($method === 'POST' && preg_match('#^/api/monitors/(\d+)/test-notification$#', $path, $matches)) {
-        // Test Discord notification
+        // Test notification (Discord or Telegram)
         $monitorId = (int)$matches[1];
         $monitor = $monitorService->getById($monitorId, $userId);
 
@@ -190,17 +183,22 @@ if ($path === '/api/monitors' || strpos($path, '/api/monitors/') === 0) {
             errorResponse('Monitor not found', 404);
         }
 
-        $webhookUrl = $monitor->getDiscordWebhookUrl();
-        if (empty($webhookUrl)) {
-            errorResponse('Discord webhook URL is not configured for this monitor', 400);
+        // Determine notification type from request or auto-detect
+        $notificationType = $data['type'] ?? null;
+        if (!$notificationType) {
+            // Auto-detect: prefer Telegram if configured, otherwise Discord
+            if (!empty($monitor->getTelegramBotToken()) && !empty($monitor->getTelegramChatId())) {
+                $notificationType = 'telegram';
+            } elseif (!empty($monitor->getDiscordWebhookUrl())) {
+                $notificationType = 'discord';
+            } else {
+                errorResponse('No notification method configured for this monitor', 400);
+            }
         }
 
         try {
-            // Get optional test parameters
-            $testStatus = $data['status'] ?? 'up';
-            $testMessage = $data['message'] ?? null;
-
             // Validate status
+            $testStatus = $data['status'] ?? 'up';
             if (!in_array($testStatus, ['up', 'down'])) {
                 errorResponse('Invalid status. Must be: up or down', 400);
             }
@@ -216,79 +214,42 @@ if ($path === '/api/monitors' || strpos($path, '/api/monitors/') === 0) {
                 $data['error_message'] ?? null
             );
 
-            // Create notifier and send test notification
-            $notifier = NotificationFactory::create('discord', [
-                'webhook_url' => $webhookUrl,
-            ]);
+            // Create and send notification
+            $notifier = null;
+            $notificationConfig = [];
 
-            // If custom message provided, create a custom notification
-            if ($testMessage !== null) {
-                // Send custom message via Discord webhook
-                $payload = [
-                    'embeds' => [
-                        [
-                            'title' => '🧪 Test Notification',
-                            'description' => $testMessage,
-                            'color' => 0x3498db, // Blue for test
-                            'fields' => [
-                                [
-                                    'name' => 'Monitor URL',
-                                    'value' => $monitor->getUrl(),
-                                    'inline' => false,
-                                ],
-                                [
-                                    'name' => 'Test Status',
-                                    'value' => strtoupper($testStatus),
-                                    'inline' => true,
-                                ],
-                            ],
-                            'timestamp' => (new \DateTime())->format('c'),
-                            'footer' => [
-                                'text' => 'This is a test notification'
-                            ]
-                        ],
-                    ],
+            if ($notificationType === 'discord') {
+                $webhookUrl = $monitor->getDiscordWebhookUrl();
+                if (empty($webhookUrl)) {
+                    errorResponse('Discord webhook URL is not configured for this monitor', 400);
+                }
+                $notificationConfig = ['webhook_url' => $webhookUrl];
+            } elseif ($notificationType === 'telegram') {
+                $botToken = $monitor->getTelegramBotToken();
+                $chatId = $monitor->getTelegramChatId();
+                if (empty($botToken) || empty($chatId)) {
+                    errorResponse('Telegram bot token and chat ID are not configured for this monitor', 400);
+                }
+                $notificationConfig = [
+                    'bot_token' => $botToken,
+                    'chat_id' => $chatId,
                 ];
-
-                $ch = curl_init($webhookUrl);
-                curl_setopt_array($ch, [
-                    CURLOPT_POST => true,
-                    CURLOPT_POSTFIELDS => json_encode($payload),
-                    CURLOPT_HTTPHEADER => [
-                        'Content-Type: application/json',
-                    ],
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_TIMEOUT => 10,
-                ]);
-
-                $response = curl_exec($ch);
-                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                $error = curl_error($ch);
-                curl_close($ch);
-
-                if ($httpCode >= 200 && $httpCode < 300) {
-                    jsonResponse([
-                        'message' => 'Test notification sent successfully',
-                        'webhook_url' => $webhookUrl,
-                        'status_code' => $httpCode
-                    ]);
-                } else {
-                    errorResponse("Failed to send notification. Discord returned HTTP {$httpCode}: {$error}", 500);
-                }
             } else {
-                // Use standard notification format
-                $success = $notifier->send($monitor, $testMonitorStatus, null);
-                
-                if ($success) {
-                    jsonResponse([
-                        'message' => 'Test notification sent successfully',
-                        'monitor_id' => $monitorId,
-                        'status' => $testStatus,
-                        'webhook_url' => $webhookUrl
-                    ]);
-                } else {
-                    errorResponse('Failed to send notification to Discord', 500);
-                }
+                errorResponse('Invalid notification type. Must be: discord or telegram', 400);
+            }
+
+            $notifier = NotificationFactory::create($notificationType, $notificationConfig);
+            $success = $notifier->send($monitor, $testMonitorStatus, null);
+
+            if ($success) {
+                jsonResponse([
+                    'message' => 'Test notification sent successfully',
+                    'monitor_id' => $monitorId,
+                    'type' => $notificationType,
+                    'status' => $testStatus,
+                ]);
+            } else {
+                errorResponse("Failed to send {$notificationType} notification", 500);
             }
         } catch (\Exception $e) {
             errorResponse('Error sending notification: ' . $e->getMessage(), 500);

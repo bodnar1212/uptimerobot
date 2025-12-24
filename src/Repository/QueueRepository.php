@@ -31,7 +31,7 @@ class QueueRepository
     public function getPendingJobs(int $limit = 50): array
     {
         $stmt = $this->db->prepare(
-            'SELECT qj.*, m.url, m.timeout_seconds, m.discord_webhook_url 
+            'SELECT qj.*, m.url, m.timeout_seconds 
              FROM queue_jobs qj
              INNER JOIN monitors m ON qj.monitor_id = m.id
              WHERE qj.status = ? AND qj.scheduled_at <= NOW()

@@ -26,21 +26,9 @@ class TelegramNotifier implements NotificationInterface
 
         // Then send a voice message (voice file) - optional, don't fail if voice fails
         $voiceSent = $this->sendVoiceCall($monitor, $status, $previousStatus);
-        
-        if (!$voiceSent) {
-            error_log("Telegram: Voice message failed. This is non-critical.");
-        }
 
         // Finally, make an actual voice call using CallMeBot API - optional and independent
-        // Voice calls work independently of bot messages, so try even if text message failed
-        error_log("Telegram: Attempting to make voice call via CallMeBot...");
         $callSent = $this->makeVoiceCall($monitor, $status, $previousStatus);
-        
-        if (!$callSent) {
-            error_log("Telegram: Voice call failed. This is non-critical.");
-        } else {
-            error_log("Telegram: ✅ Voice call initiated successfully via CallMeBot. You should receive a call on Telegram shortly.");
-        }
 
         // Return true if at least one notification method succeeded
         return $textSent || $callSent;
@@ -262,27 +250,21 @@ class TelegramNotifier implements NotificationInterface
         if ($httpCode >= 200 && $httpCode < 300) {
             // CallMeBot returns HTML page on success, check if it contains success indicators
             if (strpos($response, 'success') !== false || strpos($response, 'calling') !== false || strlen($response) > 100) {
-                error_log("Telegram: CallMeBot voice call initiated successfully to @{$username}");
+                // Call initiated successfully
                 return true;
             }
         }
         
-        // CallMeBot might return different status codes, log for debugging
-        $responsePreview = substr($response, 0, 200);
-        error_log("Telegram: CallMeBot API call - HTTP {$httpCode} - Response preview: {$responsePreview}");
-        
-        // If it's a 400/401, might be authorization issue
-        if ($httpCode === 400 || $httpCode === 401) {
-            error_log("Telegram: CallMeBot authorization required. Please message @CallMeBot_txtbot with /start to authorize voice calls.");
-        } elseif ($httpCode === 200) {
+        // Check response
+        if ($httpCode >= 200 && $httpCode < 300) {
             // HTTP 200 but might be an error page, check response
             if (strpos(strtolower($response), 'error') !== false || strpos(strtolower($response), 'not authorized') !== false) {
-                error_log("Telegram: CallMeBot returned error page. Please check authorization with @CallMeBot_txtbot");
-            } else {
-                // Might still be successful even if we can't parse it
-                error_log("Telegram: CallMeBot returned HTTP 200. Call may have been initiated.");
-                return true;
+                error_log("Telegram: CallMeBot authorization required. Message @CallMeBot_txtbot with /start");
+                return false;
             }
+            return true;
+        } elseif ($httpCode === 400 || $httpCode === 401) {
+            error_log("Telegram: CallMeBot authorization required. Message @CallMeBot_txtbot with /start");
         }
         
         return false;
