@@ -48,19 +48,34 @@ foreach ($monitors as $monitor) {
     }
     $uptimePercent = $totalChecks > 0 ? round(($upChecks / $totalChecks) * 100, 2) : 100;
     
-    // Get recent status changes (for status updates)
+    // Get recent status changes (for status updates) - show all status changes, not just down
+    // Get all statuses and filter to show only when status actually changed
     $recentChangesStmt = $pdo->prepare('
-        SELECT ms1.*, m.url
-        FROM monitor_statuses ms1
-        INNER JOIN monitors m ON ms1.monitor_id = m.id
-        WHERE ms1.monitor_id = ?
-        AND ms1.status = "down"
-        AND ms1.checked_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-        ORDER BY ms1.checked_at DESC
-        LIMIT 10
+        SELECT ms.*, m.url
+        FROM monitor_statuses ms
+        INNER JOIN monitors m ON ms.monitor_id = m.id
+        WHERE ms.monitor_id = ?
+        AND ms.checked_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        ORDER BY ms.checked_at DESC
+        LIMIT 100
     ');
     $recentChangesStmt->execute([$monitorId]);
-    $recentChanges = $recentChangesStmt->fetchAll();
+    $allStatuses = $recentChangesStmt->fetchAll();
+    
+    // Filter to only show status changes (where status differs from previous)
+    // Always include the first (most recent) status, then show changes
+    $recentChanges = [];
+    $previousStatus = null;
+    foreach ($allStatuses as $status) {
+        // Always include first status, then only include when status changes
+        if ($previousStatus === null || $status['status'] !== $previousStatus) {
+            $recentChanges[] = $status;
+            $previousStatus = $status['status'];
+        }
+        if (count($recentChanges) >= 20) {
+            break;
+        }
+    }
     
     // Build calendar data (last 90 days)
     $calendarData = [];
@@ -354,7 +369,8 @@ foreach ($monitorData as $data) {
             border-left-color: #ef4444;
         }
         
-            border-left-color: #3b82f6;
+        .update-item.up {
+            border-left-color: #10b981;
         }
         
         .update-header {
@@ -513,9 +529,13 @@ foreach ($monitorData as $data) {
             <?php else: ?>
                 <?php foreach ($allUpdates as $update): 
                     $updateClass = $update['status'];
-                    $updateTitle = $update['status'] === 'down' 
-                        ? 'Service Degraded' 
-                        : 'Status Update';
+                    if ($update['status'] === 'down') {
+                        $updateTitle = 'Service Degraded';
+                        $updateMessage = 'Service is currently experiencing issues.';
+                    } else {
+                        $updateTitle = 'Service Operational';
+                        $updateMessage = 'Service is now operational.';
+                    }
                 ?>
                 <div class="update-item <?= $updateClass ?>">
                     <div class="update-header">
@@ -523,9 +543,7 @@ foreach ($monitorData as $data) {
                         <div class="update-time"><?= date('M j, Y g:i A', strtotime($update['checked_at'])) ?></div>
                     </div>
                     <div class="update-details">
-                        <?php if ($update['status'] === 'down'): ?>
-                            Service is currently experiencing issues.
-                        <?php endif; ?>
+                        <?= $updateMessage ?>
                         <?php if ($update['response_time_ms']): ?>
                             Response time: <?= $update['response_time_ms'] ?>ms
                         <?php endif; ?>

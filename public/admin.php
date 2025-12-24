@@ -211,6 +211,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = "Error: " . $e->getMessage();
             $messageType = "error";
         }
+    } elseif ($action === 'reset_history') {
+        try {
+            $monitorId = (int)$_POST['monitor_id'];
+            
+            // Get the monitor to verify it exists
+            $monitor = $monitorRepository->findById($monitorId);
+            if (!$monitor) {
+                throw new \Exception('Monitor not found');
+            }
+            
+            // Delete all status history for this monitor
+            $pdo = Connection::getInstance();
+            $stmt = $pdo->prepare('DELETE FROM monitor_statuses WHERE monitor_id = ?');
+            $stmt->execute([$monitorId]);
+            $deletedCount = $stmt->rowCount();
+            
+            $message = "Monitor history reset successfully! Deleted {$deletedCount} status record(s).";
+            $messageType = "success";
+        } catch (\Exception $e) {
+            $message = "Error: " . $e->getMessage();
+            $messageType = "error";
+        }
     }
     
     // Redirect to prevent form resubmission
@@ -426,6 +448,15 @@ $stats = $statsStmt->fetch();
         
         .btn-danger:hover {
             background: #c82333;
+        }
+        
+        .btn-warning {
+            background: #ffc107;
+            color: #000;
+        }
+        
+        .btn-warning:hover {
+            background: #e0a800;
         }
         
         .btn-success {
@@ -881,6 +912,7 @@ $stats = $statsStmt->fetch();
                             <td>
                                 <div class="action-buttons">
                                     <button class="btn btn-sm btn-primary" onclick="openEditModal(<?= htmlspecialchars(json_encode($monitor)) ?>)">Edit</button>
+                                    <button class="btn btn-sm btn-warning" onclick="resetMonitorHistory(<?= htmlspecialchars($monitor['id']) ?>)">Reset History</button>
                                     <button class="btn btn-sm btn-danger" onclick="deleteMonitor(<?= htmlspecialchars($monitor['id']) ?>)">Delete</button>
                                 </div>
                             </td>
@@ -1317,6 +1349,26 @@ $stats = $statsStmt->fetch();
         </div>
     </div>
     
+    <!-- Reset History Confirmation Modal -->
+    <div id="resetHistoryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Reset Monitor History</h3>
+                <button class="close" onclick="closeModal('resetHistoryModal')">&times;</button>
+            </div>
+            <p>Are you sure you want to reset all history for this monitor? This will delete all status records and cannot be undone.</p>
+            <p style="color: #991b1b; font-weight: 500; margin-top: 1rem;">⚠️ This action will permanently delete all status history, uptime statistics, and historical data for this monitor.</p>
+            <form method="POST" action="" id="resetHistoryForm">
+                <input type="hidden" name="action" value="reset_history">
+                <input type="hidden" name="monitor_id" id="reset_history_monitor_id">
+                <div class="form-actions">
+                    <button type="button" class="btn" onclick="closeModal('resetHistoryModal')">Cancel</button>
+                    <button type="submit" class="btn btn-warning">Reset History</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
     <script>
         function copyApiKey(userId, apiKey, event) {
             // Get the button element from the event
@@ -1443,6 +1495,11 @@ $stats = $statsStmt->fetch();
             document.getElementById('deleteModal').style.display = 'block';
         }
         
+        function resetMonitorHistory(monitorId) {
+            document.getElementById('reset_history_monitor_id').value = monitorId;
+            document.getElementById('resetHistoryModal').style.display = 'block';
+        }
+        
         function closeModal(modalId) {
             document.getElementById(modalId).style.display = 'none';
         }
@@ -1456,7 +1513,7 @@ $stats = $statsStmt->fetch();
         
         // Auto-refresh every 30 seconds (only if no modals are open)
         setTimeout(() => {
-            const modals = ['createUserModal', 'editUserModal', 'deleteUserModal', 'createModal', 'editModal', 'deleteModal'];
+            const modals = ['createUserModal', 'editUserModal', 'deleteUserModal', 'createModal', 'editModal', 'deleteModal', 'resetHistoryModal'];
             const anyOpen = modals.some(modalId => {
                 const modal = document.getElementById(modalId);
                 return modal && modal.style.display !== 'none';
